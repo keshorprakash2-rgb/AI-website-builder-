@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Website Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* CRITICAL MOBILE VIEW LOGIC */
+        body { 
+            min-height: 100dvh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            background-color: #111827; /* tailwind gray-900 */
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    </style>
+</head>
+<body>
+
+    <div class="flex flex-1 h-full w-full overflow-hidden relative">
+        
+        <aside class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col flex-shrink-0 z-20 hidden md:flex absolute md:relative h-full transition-transform" id="sidebar">
+            <div class="p-4 border-b border-gray-800">
+                <button id="newProjectBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                    <i class="fas fa-plus"></i> New Project
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-2 space-y-1" id="projectList">
+                </div>
+            
+            <div class="p-4 border-t border-gray-800">
+                <button id="settingsBtn" class="flex items-center gap-3 text-gray-400 hover:text-white w-full transition-colors p-2 rounded hover:bg-gray-800">
+                    <i class="fas fa-cog"></i> Settings
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col min-w-0 h-full relative">
+            
+            <header class="h-14 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 flex-shrink-0">
+                <div class="flex items-center gap-4">
+                    <button id="mobileMenuBtn" class="md:hidden text-gray-400 hover:text-white">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="flex gap-2">
+                        <div class="w-3 h-3 rounded-full bg-red-500 shadow-sm cursor-pointer hover:opacity-80"></div>
+                        <div class="w-3 h-3 rounded-full bg-yellow-500 shadow-sm cursor-pointer hover:opacity-80"></div>
+                        <div class="w-3 h-3 rounded-full bg-green-500 shadow-sm cursor-pointer hover:opacity-80"></div>
+                    </div>
+                </div>
+
+                <div class="flex bg-gray-800 rounded-lg p-1 border border-gray-700">
+                    <button id="tabPreview" class="px-4 py-1 rounded bg-gray-700 shadow text-sm font-medium transition-all text-white">Preview</button>
+                    <button id="tabCode" class="px-4 py-1 rounded text-gray-400 hover:text-white text-sm font-medium transition-all">Code</button>
+                </div>
+
+                <button id="downloadBtn" class="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800" title="Download index.html">
+                    <i class="fas fa-download text-lg"></i>
+                </button>
+            </header>
+
+            <div class="flex-1 relative bg-white overflow-hidden">
+                <iframe id="previewFrame" class="w-full h-full border-0 absolute inset-0 z-10 bg-white"></iframe>
+                <pre id="codeFrame" class="w-full h-full overflow-auto absolute inset-0 z-0 bg-gray-950 text-emerald-400 p-6 text-sm font-mono hidden select-all m-0"></pre>
+                
+                <div id="loadingOverlay" class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm z-20 flex-col items-center justify-center hidden">
+                    <i class="fas fa-circle-notch fa-spin text-4xl text-blue-500 mb-4"></i>
+                    <p class="text-white font-medium animate-pulse">Building your vision...</p>
+                </div>
+            </div>
+
+            <footer class="p-3 bg-gray-900 border-t border-gray-800 flex-shrink-0 flex gap-2 items-end z-30 relative">
+                <textarea id="promptInput" rows="1" class="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-3 text-white resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all max-h-32 min-h-[44px]" placeholder="Describe the website you want to build or update..."></textarea>
+                <button id="sendBtn" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg flex items-center justify-center transition-colors h-[48px] w-[48px] flex-shrink-0 mb-[1px]">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </footer>
+
+        </main>
+        
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-10 hidden md:hidden"></div>
+    </div>
+
+    <div id="settingsModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-gray-900 rounded-xl w-full max-w-md p-6 border border-gray-700 shadow-2xl transform transition-all">
+            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                <i class="fas fa-sliders-h text-blue-500"></i> Settings
+            </h2>
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-400 mb-2">Add Gemini API Key :-</label>
+                <input type="password" id="apiKeyInput" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors" value="AIzaSyAOAN_U2OqJhI8Fonjh5UPbymYGk7uvooY">
+                <p class="text-xs text-gray-500 mt-2">Required for AI generation to work.</p>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="closeSettingsBtn" class="px-4 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors">Cancel</button>
+                <button id="saveSettingsBtn" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors">Save Details</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- SYSTEM LOGIC & STATE ---
+        const SYSTEM_PROMPT = "You are an expert web developer. Output ONLY raw HTML code representing a complete, valid, responsive HTML5 document. Include inline CSS (Tailwind CDN is allowed) and JavaScript if needed. Do NOT use markdown code block wrappers (like ```html). Return ONLY the raw code string.";
+        const DEFAULT_API_KEY = "AIzaSyAOAN_U2OqJhI8Fonjh5UPbymYGk7uvooY";
+        
+        let projects = JSON.parse(localStorage.getItem('ai_builder_projects')) || [];
+        let currentProject = null;
+        let viewMode = 'preview'; // 'preview' | 'code'
+
+        // --- DOM ELEMENTS ---
+        const els = {
+            newProjectBtn: document.getElementById('newProjectBtn'),
+            projectList: document.getElementById('projectList'),
+            settingsBtn: document.getElementById('settingsBtn'),
+            tabPreview: document.getElementById('tabPreview'),
+            tabCode: document.getElementById('tabCode'),
+            downloadBtn: document.getElementById('downloadBtn'),
+            previewFrame: document.getElementById('previewFrame'),
+            codeFrame: document.getElementById('codeFrame'),
+            loadingOverlay: document.getElementById('loadingOverlay'),
+            promptInput: document.getElementById('promptInput'),
+            sendBtn: document.getElementById('sendBtn'),
+            settingsModal: document.getElementById('settingsModal'),
+            apiKeyInput: document.getElementById('apiKeyInput'),
+            closeSettingsBtn: document.getElementById('closeSettingsBtn'),
+            saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+            mobileMenuBtn: document.getElementById('mobileMenuBtn'),
+            sidebar: document.getElementById('sidebar'),
+            sidebarOverlay: document.getElementById('sidebarOverlay')
+        };
+
+        // --- INITIALIZATION ---
+        function init() {
+            // Restore API key
+            const savedKey = localStorage.getItem('ai_builder_api_key');
+            if (savedKey) els.apiKeyInput.value = savedKey;
+
+            // Auto-adjust textarea height
+            els.promptInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+
+            // Enter key to send (Shift+Enter for new line)
+            els.promptInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    generateWebsite();
+                }
+            });
+
+            if (projects.length === 0) {
+                createNewProject();
+            } else {
+                loadProject(projects[0].id);
+            }
+            renderProjectList();
+        }
+
+        // --- PROJECT MANAGEMENT ---
+        function createNewProject() {
+            const newProject = {
+                id: Date.now().toString(),
+                name: `Project ${projects.length + 1}`,
+                html: '<div style="display:flex;height:100vh;align-items:center;justify-content:center;font-family:sans-serif;color:#666;">Describe a website below to begin building.</div>'
+            };
+            projects.unshift(newProject);
+            saveProjects();
+            loadProject(newProject.id);
+            renderProjectList();
+        }
+
+        function loadProject(id) {
+            currentProject = projects.find(p => p.id === id);
+            if (!currentProject) return;
+            updateViewContent();
+            renderProjectList();
+            if(window.innerWidth < 768) toggleMobileMenu(false);
+        }
+
+        function updateProjectData(htmlContent) {
+            if (!currentProject) return;
+            currentProject.html = htmlContent;
+            
+            // Extract a title snippet for the project name if it's new/default
+            if (currentProject.name.startsWith('Project ')) {
+                const match = htmlContent.match(/<title>(.*?)<\/title>/i);
+                if (match && match[1]) {
+                    currentProject.name = match[1].substring(0, 20);
+                }
+            }
+            
+            saveProjects();
+            updateViewContent();
+            renderProjectList();
+        }
+
+        function saveProjects() {
+            localStorage.setItem('ai_builder_projects', JSON.stringify(projects));
+        }
+
+        function renderProjectList() {
+            els.projectList.innerHTML = '';
+            projects.forEach(p => {
+                const btn = document.createElement('button');
+                const isActive = currentProject && currentProject.id === p.id;
+                btn.className = `w-full text-left px-3 py-2 rounded-lg truncate text-sm transition-colors flex items-center gap-2 ${isActive ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}`;
+                btn.innerHTML = `<i class="fas fa-code text-xs"></i> ${p.name}`;
+                btn.onclick = () => loadProject(p.id);
+                els.projectList.appendChild(btn);
+            });
+        }
+
+        // --- VIEW MANAGEMENT ---
+        function updateViewContent() {
+            if (!currentProject) return;
+            
+            // Update Preview
+            els.previewFrame.srcdoc = currentProject.html;
+            
+            // Update Code View
+            // Escaping HTML for safe display in <pre>
+            els.codeFrame.textContent = currentProject.html;
+        }
+
+        function setViewMode(mode) {
+            viewMode = mode;
+            if (mode === 'preview') {
+                els.tabPreview.className = "px-4 py-1 rounded bg-gray-700 shadow text-sm font-medium transition-all text-white";
+                els.tabCode.className = "px-4 py-1 rounded text-gray-400 hover:text-white text-sm font-medium transition-all";
+                els.previewFrame.classList.remove('hidden');
+                els.previewFrame.style.zIndex = '10';
+                els.codeFrame.classList.add('hidden');
+                els.codeFrame.style.zIndex = '0';
+            } else {
+                els.tabCode.className = "px-4 py-1 rounded bg-gray-700 shadow text-sm font-medium transition-all text-white";
+                els.tabPreview.className = "px-4 py-1 rounded text-gray-400 hover:text-white text-sm font-medium transition-all";
+                els.codeFrame.classList.remove('hidden');
+                els.codeFrame.style.zIndex = '10';
+                els.previewFrame.classList.add('hidden');
+                els.previewFrame.style.zIndex = '0';
+            }
+        }
+
+        // --- AI GENERATION ENGINE ---
+        async function generateWebsite() {
+            const prompt = els.promptInput.value.trim();
+            if (!prompt) return;
+
+            const apiKey = els.apiKeyInput.value.trim();
+            if (!apiKey) {
+                alert("Please add your Gemini API key in Settings.");
+                els.settingsModal.classList.remove('hidden');
+                return;
+            }
+
+            // UI feedback
+            els.promptInput.value = '';
+            els.promptInput.style.height = 'auto';
+            els.loadingOverlay.classList.remove('hidden');
+            els.loadingOverlay.classList.add('flex');
+
+            try {
+                // Determine if this is an update or a fresh build
+                let contextualPrompt = SYSTEM_PROMPT;
+                if (currentProject && currentProject.html && !currentProject.html.includes("Describe a website below")) {
+                    contextualPrompt += `\n\nCURRENT HTML CONTEXT:\n\`\`\`html\n${currentProject.html}\n\`\`\`\n\nApply the following updates to the HTML. Return the FULL updated HTML file, do not truncate.`;
+                }
+
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{
+                        role: "user",
+                        parts: [{ text: `${contextualPrompt}\n\nUSER REQUEST: ${prompt}` }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.2 // Lower temp for more reliable code output
+                    }
+                };
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                // === ANTI-CRASH JSON LOGIC (As strictly requested) ===
+                const text = await response.text();
+                if (!response.ok) {
+                    alert("API Error: " + text);
+                    return; // STOP EXECUTION
+                }
+                const data = JSON.parse(text);
+                // =====================================================
+
+                if (data.candidates && data.candidates[0].content.parts[0].text) {
+                    let generatedHTML = data.candidates[0].content.parts[0].text;
+                    
+                    // Cleanup markdown formatting if AI still outputs it
+                    generatedHTML = generatedHTML.replace(/^```html/im, '');
+                    generatedHTML = generatedHTML.replace(/^```/im, '');
+                    generatedHTML = generatedHTML.replace(/```$/im, '');
+                    generatedHTML = generatedHTML.trim();
+
+                    updateProjectData(generatedHTML);
+                    
+                    // Auto-switch to preview if in code mode
+                    if(viewMode === 'code') setViewMode('preview');
+                } else {
+                    throw new Error("Unexpected API response structure.");
+                }
+
+            } catch (error) {
+                alert(`Generation Failed: ${error.message}`);
+            } finally {
+                els.loadingOverlay.classList.add('hidden');
+                els.loadingOverlay.classList.remove('flex');
+            }
+        }
+
+        // --- EXPORT LOGIC ---
+        function downloadHtml() {
+            if (!currentProject) return;
+            const blob = new Blob([currentProject.html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentProject.name.replace(/\s+/g, '_').toLowerCase()}_export.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // --- MOBILE MENU ---
+        function toggleMobileMenu(forceState) {
+            const isHidden = els.sidebar.classList.contains('hidden');
+            const shouldShow = forceState !== undefined ? forceState : isHidden;
+            
+            if (shouldShow) {
+                els.sidebar.classList.remove('hidden');
+                els.sidebarOverlay.classList.remove('hidden');
+            } else {
+                els.sidebar.classList.add('hidden');
+                els.sidebarOverlay.classList.add('hidden');
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+        els.newProjectBtn.addEventListener('click', createNewProject);
+        els.sendBtn.addEventListener('click', generateWebsite);
+        els.tabPreview.addEventListener('click', () => setViewMode('preview'));
+        els.tabCode.addEventListener('click', () => setViewMode('code'));
+        els.downloadBtn.addEventListener('click', downloadHtml);
+        
+        // Settings Modal
+        els.settingsBtn.addEventListener('click', () => els.settingsModal.classList.remove('hidden'));
+        els.closeSettingsBtn.addEventListener('click', () => els.settingsModal.classList.add('hidden'));
+        els.saveSettingsBtn.addEventListener('click', () => {
+            localStorage.setItem('ai_builder_api_key', els.apiKeyInput.value.trim());
+            els.settingsModal.classList.add('hidden');
+        });
+
+        // Mobile Handlers
+        els.mobileMenuBtn.addEventListener('click', () => toggleMobileMenu());
+        els.sidebarOverlay.addEventListener('click', () => toggleMobileMenu(false));
+
+        // Bootstrap
+        init();
+    </script>
+</body>
+</html>
